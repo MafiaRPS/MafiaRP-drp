@@ -1,11 +1,11 @@
 --[[-------------------------------------------------------------------------
-DarkRP config settings.
+MafiaRP config settings.
 -----------------------------------------------------------------------------
 
-This is the settings file of DarkRP. Every DarkRP setting is listed here.
+This is the settings file of MafiaRP. Every MafiaRP setting is listed here.
 
 Warning:
-If this file is missing settings (because of e.g. an update), DarkRP will assume default values for these settings.
+If this file is missing settings (because of e.g. an update), MafiaRP will assume default values for these settings.
 Don't worry about updating this file. If a new setting is added you can manually add them to this file.
 ---------------------------------------------------------------------------]]
 
@@ -329,12 +329,12 @@ GM.Config.moneyModel = "models/props/cs_assault/money.mdl"
 GM.Config.lockdownsound = "npc/overwatch/cityvoice/f_confirmcivilstatus_1_spkr.wav"
 
 -- The skin DarkRP uses. Set to "default" to use the GMod default derma theme.
-GM.Config.DarkRPSkin = "DarkRP"
+GM.Config.DarkRPSkin = "MafiaRP"
 GM.Config.currency = "$"
 GM.Config.currencyThousandSeparator = ","
 GM.Config.chatCommandPrefix = "/"
-GM.Config.F1MenuHelpPage = "https://darkrp.miraheze.org/wiki/Main_Page"
-GM.Config.F1MenuHelpPageTitle = "DarkRP Wiki"
+GM.Config.F1MenuHelpPage = ""
+GM.Config.F1MenuHelpPageTitle = ""
 
 -- The sound that plays when you get a DarkRP notification
 GM.Config.notificationSound = "buttons/lightswitch2.wav"
