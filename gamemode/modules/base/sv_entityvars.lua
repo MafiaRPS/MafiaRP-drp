@@ -1,7 +1,7 @@
 local meta = FindMetaTable("Player")
 
-local DarkRPVars = {}
-local privateDarkRPVars = {}
+DarkRP.ServerDarkRPVars = DarkRP.ServerDarkRPVars or {}
+DarkRP.ServerPrivateDarkRPVars = DarkRP.ServerPrivateDarkRPVars or {}
 
 --[[---------------------------------------------------------------------------
 Pooled networking strings
@@ -15,16 +15,32 @@ util.AddNetworkString("DarkRP_DarkRPVarDisconnect")
 Player vars
 ---------------------------------------------------------------------------]]
 
+local warningsShown = {}
+local function checkDarkRPVarRegistration(name)
+    local DarkRPVar = DarkRP.RegisteredDarkRPVars[name]
+    if DarkRPVar then return end
+
+    if warningsShown[name] then return end
+    warningsShown[name] = true
+
+    DarkRP.errorNoHalt(string.format([[Warning! DarkRPVar '%s' wasn't registered!
+        Please contact the author of the DarkRP Addon to fix this.
+        Until this is fixed you don't need to worry about anything. Everything will keep working.
+        It's just that registering DarkRPVars would make DarkRP faster.]], name), 4)
+end
+
 --[[---------------------------------------------------------------------------
 Remove a player's DarkRPVar
 ---------------------------------------------------------------------------]]
 function meta:removeDarkRPVar(var, target)
-    local vars = DarkRPVars[self]
+    local vars = DarkRP.ServerDarkRPVars[self]
     hook.Call("DarkRPVarChanged", nil, self, var, vars and vars[var], nil)
     target = target or player.GetAll()
 
-    DarkRPVars[self] = DarkRPVars[self] or {}
-    DarkRPVars[self][var] = nil
+    DarkRP.ServerDarkRPVars[self] = DarkRP.ServerDarkRPVars[self] or {}
+    DarkRP.ServerDarkRPVars[self][var] = nil
+
+    checkDarkRPVarRegistration(var)
 
     net.Start("DarkRP_PlayerVarRemoval")
         net.WriteUInt(self:UserID(), 16)
@@ -40,11 +56,13 @@ function meta:setDarkRPVar(var, value, target)
 
     if value == nil then return self:removeDarkRPVar(var, target) end
 
-    local vars = DarkRPVars[self]
+    local vars = DarkRP.ServerDarkRPVars[self]
     hook.Call("DarkRPVarChanged", nil, self, var, vars and vars[var], value)
 
-    DarkRPVars[self] = DarkRPVars[self] or {}
-    DarkRPVars[self][var] = value
+    DarkRP.ServerDarkRPVars[self] = DarkRP.ServerDarkRPVars[self] or {}
+    DarkRP.ServerDarkRPVars[self][var] = value
+
+    checkDarkRPVarRegistration(var)
 
     net.Start("DarkRP_PlayerVar")
         net.WriteUInt(self:UserID(), 16)
@@ -56,8 +74,8 @@ end
 Set a private DarkRPVar
 ---------------------------------------------------------------------------]]
 function meta:setSelfDarkRPVar(var, value)
-    privateDarkRPVars[self] = privateDarkRPVars[self] or {}
-    privateDarkRPVars[self][var] = true
+    DarkRP.ServerPrivateDarkRPVars[self] = DarkRP.ServerPrivateDarkRPVars[self] or {}
+    DarkRP.ServerPrivateDarkRPVars[self][var] = true
 
     self:setDarkRPVar(var, value, self)
 end
@@ -66,7 +84,7 @@ end
 Get a DarkRPVar
 ---------------------------------------------------------------------------]]
 function meta:getDarkRPVar(var, fallback)
-    local vars = DarkRPVars[self]
+    local vars = DarkRP.ServerDarkRPVars[self]
     if vars == nil then return fallback end
 
     local results = vars[var]
@@ -79,11 +97,11 @@ end
 Backwards compatibility: Set ply.DarkRPVars attribute
 ---------------------------------------------------------------------------]]
 function meta:setDarkRPVarsAttribute()
-    DarkRPVars[self] = DarkRPVars[self] or {}
+    DarkRP.ServerDarkRPVars[self] = DarkRP.ServerDarkRPVars[self] or {}
     -- With a reference to the table, ply.DarkRPVars should always remain
-    -- up-to-date. One needs only be careful that DarkRPVars[ply] is never
-    -- replaced by a different table.
-    self.DarkRPVars = DarkRPVars[self]
+    -- up-to-date. One needs only be careful that DarkRP.ServerDarkRPVars[ply]
+    -- is never replaced by a different table.
+    self.DarkRPVars = DarkRP.ServerDarkRPVars[self]
 end
 
 
@@ -101,15 +119,15 @@ function meta:sendDarkRPVars()
             net.WriteUInt(target:UserID(), 16)
 
             local vars = {}
-            for var, value in pairs(DarkRPVars[target] or {}) do
-                if self ~= target and (privateDarkRPVars[target] or {})[var] then continue end
+            for var, value in pairs(DarkRP.ServerDarkRPVars[target] or {}) do
+                if self ~= target and (DarkRP.ServerPrivateDarkRPVars[target] or {})[var] then continue end
                 table.insert(vars, var)
             end
 
             local vars_cnt = #vars
             net.WriteUInt(vars_cnt, DarkRP.DARKRP_ID_BITS + 2) -- Allow for three times as many unknown DarkRPVars than the limit
             for i = 1, vars_cnt, 1 do
-                DarkRP.writeNetDarkRPVar(vars[i], DarkRPVars[target][vars[i]])
+                DarkRP.writeNetDarkRPVar(vars[i], DarkRP.ServerDarkRPVars[target][vars[i]])
             end
         end
     net.Send(self)
@@ -269,17 +287,18 @@ function meta:customEntityCount(entTable)
     return entities
 end
 
-hook.Add("PlayerDisconnected", "DarkRP_VarRemoval", function(ply)
-    maxEntities[ply] = nil
+-- We use EntityRemoved to clear players of tables, because it is always called
+-- after the PlayerDisconnected hook. This is called _after_ the GAMEMODE
+-- function, to make sure that all regular hooks can still use DarkRPVars until
+-- the very end. See https://github.com/FPtje/DarkRP/pull/3270
+(GAMEMODE or GM).DarkRPPostEntityRemoved = function(_gm, ent)
+    if not ent:IsPlayer() then return end
+
+    maxEntities[ent] = nil
+    DarkRP.ServerDarkRPVars[ent] = nil
+    DarkRP.ServerPrivateDarkRPVars[ent] = nil
 
     net.Start("DarkRP_DarkRPVarDisconnect")
-        net.WriteUInt(ply:UserID(), 16)
+        net.WriteUInt(ent:UserID(), 16)
     net.Broadcast()
-end)
-
-hook.Add("EntityRemoved", "DarkRP_VarRemoval", function(ent) -- We use EntityRemoved to clear players of tables, because it is always called after the PlayerDisconnected hook
-    if ent:IsPlayer() then
-        DarkRPVars[ent] = nil
-        privateDarkRPVars[ent] = nil
-    end
-end)
+end

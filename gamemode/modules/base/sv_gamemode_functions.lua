@@ -240,8 +240,15 @@ function GM:EntityRemoved(ent)
     end
 
     local owner = ent.Getowning_ent and ent:Getowning_ent() or Player(ent.SID or 0)
+
     if ent.DarkRPItem and IsValid(owner) and not ent.IsPocketing then owner:removeCustomEntity(ent.DarkRPItem) end
     if ent.isKeysOwnable and ent:isKeysOwnable() then ent:removeDoorData() end
+
+    -- Quick workaround for the fact that we don't have a hook ordering system
+    -- built into gmod.
+    if self.DarkRPPostEntityRemoved then
+        self.DarkRPPostEntityRemoved(self, ent)
+    end
 end
 
 function GM:ShowSpare1(ply)
@@ -419,7 +426,7 @@ timer.Create("DarkRPCanHearPlayersVoice", DarkRP.voiceCheckTimeDelay, 0, functio
     end
 end)
 
-hook.Add("PlayerDisconnect", "DarkRPCanHear", function(ply)
+hook.Add("PlayerDisconnected", "DarkRPCanHear", function(ply)
     DrpCanHear[ply] = nil -- Clear to avoid memory leaks
 end)
 
@@ -1045,7 +1052,7 @@ end
 
 local function fuckQAC()
     local netRecs = {"Debug1", "Debug2", "checksaum", "gcontrol_vars", "control_vars", "QUACK_QUACK_MOTHER_FUCKER"}
-    for _, v in pairs(netRecs) do
+    for _, v in ipairs(netRecs) do
         net.Receivers[v] = fn.Id
     end
 end

@@ -194,7 +194,7 @@ function meta:getEyeSightHitEntity(searchDistance, hitDistance, filter)
     local smallestDistance = math.huge
     local foundEnt
 
-    for _, ent in pairs(entities) do
+    for _, ent in ipairs(entities) do
         if not IsValid(ent) or filter(ent) == false then continue end
 
         local center = ent:GetPos()
@@ -381,13 +381,13 @@ if CLIENT then net.Receive("DarkRP_databaseCheckMessage", fc{print, net.ReadStri
 
 local function checkDatabase(ply)
     local dbFile = SERVER and "sv.db" or "cl.db"
-    local display = (CLIENT or ply == game.GetWorld()) and print or function(msg)
+    local display = (CLIENT or not IsValid(ply)) and print or function(msg)
             net.Start("DarkRP_databaseCheckMessage")
             net.WriteString(msg)
             net.Send(ply)
         end
 
-    if SERVER and ply ~= game.GetWorld() and not ply:IsSuperAdmin() then
+    if SERVER and IsValid(ply) and not ply:IsSuperAdmin() then
         display("You must be superadmin")
         return
     end
